@@ -41,6 +41,26 @@ class JavascriptAgent(Agent):
             return {'error': str(e)}
 
 # Orchestrator core
+
+# Additional language agents
+class JavaAgent(Agent):
+    async def run(self, task):
+        prompt = f"Generate Java code for: {task.get('brief', '')}"
+        code = get_llm_response(prompt, model='gpt-4o-mini')
+        return {'lang': 'java', 'generated': code}
+
+class GoAgent(Agent):
+    async def run(self, task):
+        prompt = f"Generate Go code for: {task.get('brief', '')}"
+        code = get_llm_response(prompt, model='gpt-4o-mini')
+        return {'lang': 'go', 'generated': code}
+
+class RustAgent(Agent):
+    async def run(self, task):
+        prompt = f"Generate Rust code for: {task.get('brief', '')}"
+        code = get_llm_response(prompt, model='gpt-4o-mini')
+        return {'lang': 'rust', 'generated': code}
+
 class Orchestrator:
     def __init__(self):
         self.agents: Dict[str, Agent] = {}
@@ -57,8 +77,19 @@ class Orchestrator:
         while True:
             task = await self.task_queue.get()
             agent_name = None
-            if task.get('type') == 'codegen':
-                lang = task.get('lang')
+                    if task.get('type') == 'codegen':
+            lang = task.get('lang')
+            if lang == 'python':
+                agent_name = 'python'
+            elif lang in ('js', 'javascript', 'node'):
+                agent_name = 'javascript'
+            elif lang == 'java':
+                agent_name = 'java'
+            elif lang == 'go':
+                agent_name = 'go'
+            elif lang == 'rust':
+                agent_name = 'rust'
+        
                 if lang == 'python':
                     agent_name = 'python'
                 elif lang in ('js', 'javascript', 'node'):

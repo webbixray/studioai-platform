@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  backend:
+    build:
+      context: "."
+      dockerfile: packages/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=development
+    ports:
+      - "5000:5000"
+  frontend:
+    build:
+      context: "."
+      dockerfile: packages/frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+  gateway:
+    build:
+      context: "."
+      dockerfile: packages/llm-gateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=
+    ports:
+      - "8000:8000"

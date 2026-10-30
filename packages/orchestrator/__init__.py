@@ -4,7 +4,8 @@ The orchestrator can schedule a thought (plan) which determines the
 appropriate agent to handle the request.
 """
 import asyncio
-from typing import Dict, Any, Callable, Awaitable
+import os
+from typing import Dict, Any
 
 # Base agent interface
 class Agent:
@@ -14,21 +15,36 @@ class Agent:
     async def run(self, task: Dict[str, Any]):  # pragma: no cover
         raise NotImplementedError
 
-# Example language agents
+# Example language agents using OpenAI chat completion
 class PythonAgent(Agent):
     async def run(self, task):
-        prompt = task.get("brief", "")
-        # Simulate generation
-        await asyncio.sleep(0.1)
-        return {"lang": "python", "generated": f"# Python code for: {prompt}
-print('Hello')"}
+        prompt = f"Generate Python code for: {task.get('brief', '')}"
+        try:
+            import openai
+            openai.api_key = os.getenv('OPENAI_API_KEY')
+            response = openai.ChatCompletion.create(
+                model='gpt-4o-mini',
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            code = response['choices'][0]['message']['content']
+            return {'lang': 'python', 'generated': code}
+        except Exception as e:
+            return {'error': str(e)}
 
 class JavascriptAgent(Agent):
     async def run(self, task):
-        prompt = task.get("brief", "")
-        await asyncio.sleep(0.1)
-        return {"lang": "js", "generated": f"// JS code for: {prompt}
-console.log('Hello');"}
+        prompt = f"Generate JavaScript code for: {task.get('brief', '')}"
+        try:
+            import openai
+            openai.api_key = os.getenv('OPENAI_API_KEY')
+            response = openai.ChatCompletion.create(
+                model='gpt-4o-mini',
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            code = response['choices'][0]['message']['content']
+            return {'lang': 'js', 'generated': code}
+        except Exception as e:
+            return {'error': str(e)}
 
 # Orchestrator core
 class Orchestrator:
@@ -46,20 +62,18 @@ class Orchestrator:
     async def _worker(self):
         while True:
             task = await self.task_queue.get()
-            # Plan: determine appropriate agent based on task type & language
-            task_type = task.get("type")
-            lang = task.get("lang")
             agent_name = None
-            if task_type == "codegen":
-                if lang == "python":
-                    agent_name = "python"
-                elif lang in ("js", "javascript", "node"):
-                    agent_name = "javascript"
+            if task.get('type') == 'codegen':
+                lang = task.get('lang')
+                if lang == 'python':
+                    agent_name = 'python'
+                elif lang in ('js', 'javascript', 'node'):
+                    agent_name = 'javascript'
             if not agent_name:
-                agent_name = "unknown"
+                agent_name = 'unknown'
             agent = self.agents.get(agent_name)
             if agent:
-                print(f"{agent.name} handling task {task.get('id')} ({lang})")
+                print(f"{agent.name} handling task {task.get('id')} ({task.get('lang')})")
                 result = await agent.run(task)
                 task['result'] = result
             else:

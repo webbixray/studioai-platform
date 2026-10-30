@@ -66,22 +66,50 @@ def _run_eslint(code: str) -> list:
 # SpotBugs for Java
 
 def _run_spotbugs(code: str) -> list:
-    # Requires spotbugs jar in PATH
-    with tempfile.NamedTemporaryFile('w', delete=False, suffix='.java') as f:
-        f.write(code)
-        tmp_dir = os.path.dirname(f.name)
+    """Run SpotBugs on compiled Java code.
+    Uses javac to compile, then spotbugs command (expects SpotBugs installed).
+    Returns list of findings e.g. {"type":"error", "message":...}.
+    If javac or spotbugs are missing, returns a warning.
+    """
     try:
-        spotbugs_cmd = shutil.which('spotbugs') or shutil.which('java')
-        if not spotbugs_cmd:
-            return [{'type':'warning', 'message':'spotbugs not installed'}]
-        # We'll just return placeholder as full analysis requires classpath
-        return [{'type':'info','message':'SpotBugs analysis not fully implemented in this sandbox'}]
-    finally:
-        os.unlink(f.name)
-
-# Go vet
-
-def _run_govet(code: str) -> list:
+        import tempfile, shutil, textwrap
+        import os
+        with tempfile.TemporaryDirectory() as td:
+            java_file=os.path.join(td,'Temp.java')
+            with open(java_file,'w') as f:
+                f.write(code)
+            # compile
+            javac_cmd=shutil.which('javac')
+            if not javac_cmd:
+                return [{"type":"warning","message":"javac not found in PATH"}]
+            compile_res=subprocess.run([javac_cmd,'-d',td,java_file],capture_output=True,text=True)
+            if compile_res.returncode!=0:
+                return [{"type":"error","message":compile_res.stderr.strip()}]
+            # find class file
+            java_class=None
+            for root,_,files in os.walk(td):
+                for f in files:
+                    if f.endswith('.class'):
+                        java_class=os.path.join(root,f)
+                        break
+            if not java_class:
+                return [{"type":"error","message":"No class file produced"}]
+            # run SpotBugs
+            spotbugs_cmd=shutil.which('spotbugs')
+            if not spotbugs_cmd:
+                return [{"type":"warning","message":"spotbugs command not found"}]
+            # SpotBugs requires classpath and directory
+            spotbugs_res=subprocess.run([spotbugs_cmd,'-textui','-effort:max','-plugin','-file',td],capture_output=True,text=True)
+            if spotbugs_res.returncode==0:
+                # Spotbugs outputs findings to stdout
+                lines=spotbugs_res.stdout.strip().split('
+')
+                findings=[{"type":"info","message":l} for l in lines if l]
+                return findings
+            else:
+                return [{"type":"error","message":spotbugs_res.stderr.strip()}]
+    except Exception as e:
+        return [{"type":"error","message":str(e)}]def _run_govet(code: str) -> list:
     with tempfile.TemporaryDirectory() as d:
         file_path = os.path.join(d, 'temp.go')
         with open(file_path, 'w') as f:

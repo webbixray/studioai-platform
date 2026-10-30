@@ -20,13 +20,10 @@ class PythonAgent(Agent):
     async def run(self, task):
         prompt = f"Generate Python code for: {task.get('brief', '')}"
         try:
-            import openai
-            openai.api_key = os.getenv('OPENAI_API_KEY')
-            response = openai.ChatCompletion.create(
-                model='gpt-4o-mini',
-                messages=[{'role': 'user', 'content': prompt}]
-            )
-            code = response['choices'][0]['message']['content']
+            from llm_client import get_llm_response
+            
+            generated = get_llm_response(prompt, model='gpt-4o-mini')
+            code = generated'message']['content']
             return {'lang': 'python', 'generated': code}
         except Exception as e:
             return {'error': str(e)}
@@ -35,13 +32,10 @@ class JavascriptAgent(Agent):
     async def run(self, task):
         prompt = f"Generate JavaScript code for: {task.get('brief', '')}"
         try:
-            import openai
-            openai.api_key = os.getenv('OPENAI_API_KEY')
-            response = openai.ChatCompletion.create(
-                model='gpt-4o-mini',
-                messages=[{'role': 'user', 'content': prompt}]
-            )
-            code = response['choices'][0]['message']['content']
+            from llm_client import get_llm_response
+            
+            generated = get_llm_response(prompt, model='gpt-4o-mini')
+            code = generated'message']['content']
             return {'lang': 'js', 'generated': code}
         except Exception as e:
             return {'error': str(e)}

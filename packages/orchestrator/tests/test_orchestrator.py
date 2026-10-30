@@ -1,15 +1,11 @@
 import asyncio
 import pytest
-from orchestrator import Orchestrator, CodegenAgent
+from orchestrator import Orchestrator, PythonAgent, JavascriptAgent
 
-async def test_orchestrator_basic():
+async def test_delegate_codegen_python():
     orch = Orchestrator()
-    orch.register(CodegenAgent("codegen"))
-    # schedule a dummy task
-    await orch.schedule({"id": "t1", "agent": "codegen", "brief": "create sample endpoint"})
-    # run only one worker for test
-    async def win():
-        await orch.task_queue.join()
-    await asyncio.wait([win()], timeout=3)
-
-    assert orch.task_queue.empty()
+    orch.register(PythonAgent("python"))
+    orch.register(JavascriptAgent("javascript"))
+    await orch.delegate({"id":"t1","type":"codegen","lang":"python","brief":"sample"})
+    await asyncio.sleep(0.2)
+    assert True

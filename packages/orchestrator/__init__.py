@@ -1,19 +1,37 @@
-"""Simple Orchestrator Engine"""
+"""Orchestrator engine with language‑specific agents.
 
+The orchestrator can schedule a thought (plan) which determines the
+appropriate agent to handle the request.
+"""
 import asyncio
-from typing import Callable, Dict, Any
+from typing import Dict, Any, Callable, Awaitable
 
+# Base agent interface
 class Agent:
-    """Base class for agent units. Each agent implements run() asynchronously."""
     def __init__(self, name: str):
         self.name = name
 
-    async def run(self, task: Dict[str, Any]):  # pragma: no cover – interface
-        """Execute the given task. Override in subclasses."""
+    async def run(self, task: Dict[str, Any]):  # pragma: no cover
         raise NotImplementedError
 
+# Example language agents
+class PythonAgent(Agent):
+    async def run(self, task):
+        prompt = task.get("brief", "")
+        # Simulate generation
+        await asyncio.sleep(0.1)
+        return {"lang": "python", "generated": f"# Python code for: {prompt}
+print('Hello')"}
+
+class JavascriptAgent(Agent):
+    async def run(self, task):
+        prompt = task.get("brief", "")
+        await asyncio.sleep(0.1)
+        return {"lang": "js", "generated": f"// JS code for: {prompt}
+console.log('Hello');"}
+
+# Orchestrator core
 class Orchestrator:
-    """Manages agent lifecycle and task delegation."""
     def __init__(self):
         self.agents: Dict[str, Agent] = {}
         self.task_queue: asyncio.Queue = asyncio.Queue()
@@ -28,13 +46,24 @@ class Orchestrator:
     async def _worker(self):
         while True:
             task = await self.task_queue.get()
-            target = task.get("agent")
-            agent = self.agents.get(target)
+            # Plan: determine appropriate agent based on task type & language
+            task_type = task.get("type")
+            lang = task.get("lang")
+            agent_name = None
+            if task_type == "codegen":
+                if lang == "python":
+                    agent_name = "python"
+                elif lang in ("js", "javascript", "node"):
+                    agent_name = "javascript"
+            if not agent_name:
+                agent_name = "unknown"
+            agent = self.agents.get(agent_name)
             if agent:
-                print(f"{agent.name} handling task {task['id']}")
-                await agent.run(task)
+                print(f"{agent.name} handling task {task.get('id')} ({lang})")
+                result = await agent.run(task)
+                task['result'] = result
             else:
-                print(f"No agent found for {target}")
+                print(f"No agent found for {agent_name}")
             self.task_queue.task_done()
 
     def run(self, n_workers: int = 1):
@@ -42,16 +71,14 @@ class Orchestrator:
             self.loop.create_task(self._worker())
         self.loop.run_forever()
 
-# placeholder agent for code generation
-class CodegenAgent(Agent):
-    async def run(self, task):
-        print(f"Generating code for {task.get('brief')}")
-        # Placeholder: sleep and return dummy
-        await asyncio.sleep(1)
-        return {"status": "done"}
+    async def delegate(self, task: Dict[str, Any]):
+        await self.schedule(task)
 
-# example usage
+# Example usage
 if __name__ == "__main__":
     orch = Orchestrator()
-    orch.register(CodegenAgent("codegen"))
+    orch.register(PythonAgent("python"))
+    orch.register(JavascriptAgent("javascript"))
+    # schedule a dummy codegen task
+    orch.loop.create_task(orch.delegate({"id": "t100", "type": "codegen", "lang": "python", "brief": "create sample class"}))
     orch.run()
